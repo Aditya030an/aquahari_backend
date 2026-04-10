@@ -3,9 +3,7 @@ import userModel from "../models/userModels.js";
 
 const authAdmin = async (req, res, next) => {
   try {
-    // ✅ Get token from Authorization header
     const authHeader = req.headers.authorization;
-
     console.log("authHeader:", authHeader);
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -15,12 +13,15 @@ const authAdmin = async (req, res, next) => {
       });
     }
 
-    // ✅ Extract token
     const token = authHeader.split(" ")[1];
-
-    // ✅ Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    console.log("decoded:", decoded);
+
     const user = await userModel.findById(decoded.id).select("email");
+    console.log("DB user:", user);
+    console.log("DB user email raw:", user?.email);
+    console.log("ENV admin email raw:", process.env.ADMIN_EMAIL);
 
     if (!user) {
       return res.status(401).json({
@@ -29,22 +30,29 @@ const authAdmin = async (req, res, next) => {
       });
     }
 
-    if(user.email !== process.env.ADMIN_EMAIL){
-        return res.status(401).json({
+    const dbEmail = user.email?.trim().toLowerCase();
+    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+
+    console.log("Normalized DB email:", dbEmail);
+    console.log("Normalized ENV admin email:", adminEmail);
+    console.log("Email match:", dbEmail === adminEmail);
+
+    if (dbEmail !== adminEmail) {
+      return res.status(403).json({
         success: false,
-        message: "Access denied",
+        message: "Access denied. Admin only.",
       });
     }
 
-    console.log("decoded:", decoded);
-
-    // ✅ Attach userId safely
-    req.user = { id: decoded.id  , email:user.email};
+    req.user = {
+      id: decoded.id,
+      email: user.email,
+    };
 
     next();
   } catch (error) {
     console.log("authAdmin error:", error);
-    res.status(401).json({
+    return res.status(401).json({
       success: false,
       message: "Token is not valid",
     });

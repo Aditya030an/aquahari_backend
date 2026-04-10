@@ -8,14 +8,15 @@ import {
   updateBlog,
   deleteBlog,
 } from "../controllers/blogController.js";
+import authAdmin from "../middleware/authAdmin.js"
 
 const router = express.Router();
 const upload = multer({ storage });
 
-router.post("/", upload.single("image"), createBlog);
+router.post("/",authAdmin ,  upload.single("image") ,  createBlog);
 router.get("/", getBlogs);
 router.get("/:id", getSingleBlog);
-router.put("/:id", upload.single("image"), updateBlog);
-router.delete("/:id", deleteBlog);
+router.put("/:id",authAdmin, upload.single("image") , updateBlog);
+router.delete("/:id",authAdmin , deleteBlog);
 
 export default router;
