@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
-import userModel from "../models/userModels";
+import userModel from "../models/userModels.js";
 
-const authUser = async (req, res, next) => {
+const authAdmin = async (req, res, next) => {
   try {
     // ✅ Get token from Authorization header
     const authHeader = req.headers.authorization;
@@ -20,23 +20,30 @@ const authUser = async (req, res, next) => {
 
     // ✅ Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await userModel.findById(decoded.id);
+    const user = await userModel.findById(decoded.id).select("email");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found",
+      });
+    }
 
     if(user.email !== process.env.ADMIN_EMAIL){
         return res.status(401).json({
         success: false,
-        message: "No Allowed",
+        message: "Access denied",
       });
     }
 
     console.log("decoded:", decoded);
 
     // ✅ Attach userId safely
-    req.user = { id: decoded.id };
+    req.user = { id: decoded.id  , email:user.email};
 
     next();
   } catch (error) {
-    console.log(error);
+    console.log("authAdmin error:", error);
     res.status(401).json({
       success: false,
       message: "Token is not valid",
@@ -44,4 +51,4 @@ const authUser = async (req, res, next) => {
   }
 };
 
-export default authUser;
+export default authAdmin;

@@ -23,11 +23,14 @@ const authUser = async (req, res, next) => {
     console.log("decoded:", decoded);
 
     // ✅ Attach userId safely
-    req.user = { id: decoded.id };
+     req.user = {
+      id: decoded.id,
+      email: decoded.email,
+    };
 
     next();
   } catch (error) {
-    console.log(error);
+    console.log("authUser error:",error);
     res.status(401).json({
       success: false,
       message: "Token is not valid",

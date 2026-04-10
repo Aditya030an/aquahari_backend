@@ -7,6 +7,7 @@ import bookingRouter from "./routes/bookingRoute.js";
 import blogRoutes from "./routes/blogRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import orderRouter from "./routes/orderRoutes.js";
+import axios from "axios";
 
 //App config
 const app = express();
@@ -34,3 +35,4 @@ app.get("/" ,(req , res)=>{
 app.listen(port , ()=>{
     console.log("server started on PORT:" + port)
 })
+

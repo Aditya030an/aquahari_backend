@@ -1,16 +1,26 @@
 import express from "express";
 
-import { getUser, loginUser , registerUser  , sendLocationToAdmin, verifiedOtp } from "../controllers/userController.js";
+import {
+  getUser,
+  loginUser,
+  registerUser,
+  sendLocationToAdmin,
+  verifiedOtp,
+  sendResetPasswordLink,
+  resetPasswordWithToken,
+} from "../controllers/userController.js";
 import authUser from "../middleware/auth.js";
 
 const userRouter = express.Router();
 
-userRouter.post("/register" , registerUser);
-userRouter.post("/login" , loginUser);
-userRouter.post("/verifiedOtp" , verifiedOtp);
+userRouter.post("/register", registerUser);
+userRouter.post("/login", loginUser);
+userRouter.post("/verifiedOtp", verifiedOtp);
 
-userRouter.get("/getUser",authUser , getUser);
+userRouter.post("/forgot-password/send-link", sendResetPasswordLink);
+userRouter.post("/reset-password/:token", resetPasswordWithToken);
 
-userRouter.post("/sendLocationToAdmin", authUser, sendLocationToAdmin );
+userRouter.get("/getUser", authUser, getUser);
+userRouter.post("/sendLocationToAdmin", authUser, sendLocationToAdmin);
 
 export default userRouter;

@@ -3,11 +3,19 @@ import userModel from "../models/userModels.js";
 import validator from "validator";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { sendEmailOtp, sendLocationAlertEmails } from "../utils/sendEmail.js";
+import { sendLocationAlertEmails, sendResetPasswordEmail } from "../utils/sendEmail.js";
 import sendSMS from "../utils/sendSMS.js";
 
-const createToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET);
+const createToken = (id, email) => {
+  return jwt.sign({ id, email }, process.env.JWT_SECRET);
+};
+
+const createResetToken = (id, email) => {
+  return jwt.sign(
+    { id, email, purpose: "reset_password" },
+    process.env.JWT_SECRET,
+    { expiresIn: "15m" },
+  );
 };
 
 const generateOTP = () => {
@@ -18,16 +26,14 @@ const generateOTP = () => {
 const loginUser = async (req, res) => {
   try {
     console.log("req body", req.body);
-    const { email, password, value, updatePassword, role } = req.body;
+    const { email, password, value, updatePassword } = req.body;
 
     const user = await userModel.findOne({ email });
     console.log("user", user);
     if (!user) {
       return res.json({ success: false, message: "User does not exist" });
     }
-    if (role && role !== user.role) {
-      return res.json({ success: false, message: "You are not authorized" });
-    }
+
     if (value === "login") {
       const isMatch = await bcrypt.compare(password, user.password);
 
@@ -40,35 +46,34 @@ const loginUser = async (req, res) => {
     if (updatePassword) {
       const hashPassword = await bcrypt.hash(password, 10);
       user.password = hashPassword;
+      user.passwordChangedAt = new Date();
       await user.save();
-      res
-        .status(200)
-        .json({ message: "Password updated successfully", success: true });
+
+      return res.status(200).json({
+        message: "Password updated successfully",
+        success: true,
+      });
     }
-    const otp = generateOTP();
-    user.otp = otp;
-    // user.otpExpires = new Date(Date.now() + 30 * 1000);
-    user.otpExpires = new Date(Date.now() + 5 * 60 * 1000);
-    await user.save();
-    await sendEmailOtp(user.email, otp);
-    // await sendSMS(`+91${user.phoneNumber}`, otp);
+
+    const token = await createToken(user?._id, user?.email);
 
     const safeUser = {
       _id: user._id,
       name: user.name,
       email: user.email,
+      phoneNumber: user.phoneNumber,
     };
 
-    res
-      .status(200)
-      .json({
-        message: "OTP sent",
-        otpExpires: user.otpExpires,
-        user:safeUser,
-        success: true,
-      });
+    res.status(200).json({
+      message: "Login Successfully",
+      user: safeUser,
+      success: true,
+      token,
+    });
+
+    // sendEmailOtp(user.email, otp).catch(err => console.log(err));
   } catch (error) {
-    console.log(error);
+    console.log("loginUser error:", error);
     res.json({ message: error.message });
   }
 };
@@ -77,7 +82,7 @@ const loginUser = async (req, res) => {
 const registerUser = async (req, res) => {
   try {
     const { name, email, password, phoneNumber, role } = req.body;
-
+    console.log("req.body in signup", req.body);
     //checking user already exist
     const exists = await userModel.findOne({ email });
     if (exists) {
@@ -115,17 +120,22 @@ const registerUser = async (req, res) => {
       email,
       password: hashPassword,
       phoneNumber,
-      role: role,
     });
 
     const user = await newUser.save();
 
-    const token = createToken(user._id);
-    res.json({ success: true, token, user });
+    const safeUser = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+    };
+
+    const token = await createToken(user._id, user?.email);
+    return res.json({ success: true, token, user: safeUser });
   } catch (error) {
     console.log(error);
     res.json({ success: false, message: error.message });
-    throw error;
   }
 };
 const verifiedOtp = async (req, res) => {
@@ -138,7 +148,7 @@ const verifiedOtp = async (req, res) => {
     if (user.otp === otp && user.otpExpires > new Date()) {
       user.isVerified = true;
       await user.save();
-      const token = await createToken(user?._id);
+      const token = await createToken(user?._id, user?.email);
       res.json({
         success: true,
         user,
@@ -168,10 +178,10 @@ const getUser = async (req, res) => {
         .status(404)
         .json({ success: false, message: "User not found" });
     }
-    res.status(200).json({ success: true, user });
+    return res.status(200).json({ success: true, user });
   } catch (error) {
     console.log(error);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -195,4 +205,141 @@ const sendLocationToAdmin = async (req, res) => {
   }
 };
 
-export { loginUser, registerUser, verifiedOtp, getUser, sendLocationToAdmin };
+// Send reset password link
+const sendResetPasswordLink = async (req, res) => {
+  try {
+    const { email } = req.body;
+    console.log("sendResetPasswordLink req.body:", req.body);
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    if (!validator.isEmail(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid email",
+      });
+    }
+
+    const user = await userModel.findOne({ email });
+
+    // keep response generic so auth flow is not weakened
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: "If the email exists, a reset link has been sent",
+      });
+    }
+
+    const resetToken = createResetToken(user._id, user.email);
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+
+    const resetLink = `${frontendUrl}/reset-password/${resetToken}`;
+
+    console.log("Generated reset link:", resetLink);
+
+    // Replace this with your real email sender helper/template
+    await sendResetPasswordEmail(email, resetLink);
+
+    return res.status(200).json({
+      success: true,
+      message: "If the email exists, a reset link has been sent",
+    });
+  } catch (error) {
+    console.log("sendResetPasswordLink error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to send reset link",
+    });
+  }
+};
+
+// Reset password with JWT token
+const resetPasswordWithToken = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password, confirmPassword } = req.body;
+
+    console.log("resetPasswordWithToken params:", req.params);
+    console.log("resetPasswordWithToken body:", req.body);
+
+    if (!password || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Password and confirm password are required",
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Passwords do not match",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    let decoded;
+
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: "Reset link is invalid or expired",
+      });
+    }
+
+    if (decoded.purpose !== "reset_password") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid reset token",
+      });
+    }
+
+    const user = await userModel.findById(decoded.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const hashPassword = await bcrypt.hash(password, 10);
+    user.password = hashPassword;
+    user.passwordChangedAt = new Date();
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successfully",
+    });
+  } catch (error) {
+    console.log("resetPasswordWithToken error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Password reset failed",
+    });
+  }
+};
+
+export {
+  loginUser,
+  registerUser,
+  verifiedOtp,
+  getUser,
+  sendLocationToAdmin,
+  sendResetPasswordLink,
+  resetPasswordWithToken,
+};

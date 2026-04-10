@@ -1,47 +1,45 @@
 import mongoose from "mongoose";
 
-const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-  },
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  password: {
-    type: String,
-    required: true,
-  },
-  phoneNumber: {
-    type: String,
-    required: true,
-  },
-  role:{
-    type: String,
-    default: "user",
-    enum: ["user", "admin", "employee"],
-  },
-  otp: {
-    type: String,
-  },
-  otpExpires: Date,
-  isVerified: {
-    type: Boolean,
-    default: false,
-  },
-  cartData:{type:Object , default:{}},
-  orders: [
+const userSchema = new mongoose.Schema(
   {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Order",
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    password: {
+      type: String,
+      required: true,
+    },
+    phoneNumber: {
+      type: String,
+      required: true,
+    },
+    addresses: {
+      type: [String],
+      default: [],
+    },
+    orders: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Order",
+      },
+    ],
+    passwordChangedAt: {
+      type: Date,
+      default: null,
+    },
   },
-],
-   
-} , {minimize:false}) ;
+  { minimize: false , timestamps:true },
+);
 
-const userModel =mongoose.models.user ||  mongoose.model("user" , userSchema);
+const userModel = mongoose.models.user || mongoose.model("user", userSchema);
 
 export default userModel;
-
