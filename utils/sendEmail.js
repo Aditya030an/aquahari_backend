@@ -182,3 +182,76 @@ export const sendConfirmOrderEmail = async (order) => {
     `,
   });
 };
+
+
+export async function sendContactFormEmail({
+  fullName,
+  phone,
+  email,
+  problem,
+  duration,
+}) {
+  try {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const ownerEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
+
+    await transporter.sendMail({
+      from: `"Aquahari Contact Form" <${process.env.EMAIL_USER}>`,
+      to: ownerEmail,
+      replyTo: email,
+      subject: `New Contact Request from ${fullName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding:20px; background:#f7f7f7;">
+          <div style="max-width:600px; margin:auto; background:white; padding:30px; border-radius:10px;">
+            <h2 style="color:#1F212E; margin-bottom:20px;">New Contact Form Submission</h2>
+
+            <p><strong>Full Name:</strong> ${fullName}</p>
+            <p><strong>Phone:</strong> ${phone}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Problem:</strong><br/>${problem}</p>
+            <p><strong>Duration:</strong><br/>${duration || "Not provided"}</p>
+
+            <hr style="margin:30px 0;" />
+
+            <p style="font-size:12px; color:#888;">
+              This message was sent from the Aquahari contact form.
+            </p>
+          </div>
+        </div>
+      `,
+    });
+
+    // optional confirmation to customer
+    await transporter.sendMail({
+      from: `"Aquahari Support" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "We received your request",
+      html: `
+        <div style="font-family: Arial, sans-serif; padding:20px; background:#f7f7f7;">
+          <div style="max-width:600px; margin:auto; background:white; padding:30px; border-radius:10px;">
+            <h2 style="color:#1F212E;">Thank you for contacting Aquahari</h2>
+            <p>Hi ${fullName},</p>
+            <p>We have received your request and will get back to you soon.</p>
+
+            <p><strong>Your issue:</strong></p>
+            <p>${problem}</p>
+
+            <p style="margin-top:25px;">Regards,<br/>Aquahari Support Team</p>
+          </div>
+        </div>
+      `,
+    });
+
+    console.log("Contact form email sent successfully");
+  } catch (error) {
+    console.error("Contact form email error:", error);
+    throw new Error("Failed to send contact email");
+  }
+}
