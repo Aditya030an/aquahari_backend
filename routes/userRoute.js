@@ -4,7 +4,6 @@ import {
   getUser,
   loginUser,
   registerUser,
-  sendLocationToAdmin,
   verifiedOtp,
   sendResetPasswordLink,
   resetPasswordWithToken,
@@ -21,6 +20,5 @@ userRouter.post("/forgot-password/send-link", sendResetPasswordLink);
 userRouter.post("/reset-password/:token", resetPasswordWithToken);
 
 userRouter.get("/getUser", authUser, getUser);
-userRouter.post("/sendLocationToAdmin", authUser, sendLocationToAdmin);
 
 export default userRouter;

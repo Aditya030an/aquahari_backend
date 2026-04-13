@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import razorpay from "../config/razorpay.js";
 import userModel from "../models/userModels.js";
+import { sendConsultationEmail } from "../utils/sendEmail.js";
 
 export const createConsultationOrder = async (req, res) => {
   try {
@@ -144,6 +145,16 @@ export const verifyConsultationPayment = async (req, res) => {
 
     user.consultations.push(newConsultation);
     await user.save();
+
+    try {
+      await sendConsultationEmail({
+        user,
+        consultation: newConsultation,
+      });
+    } catch (emailError) {
+      console.error("Admin consultation email failed:", emailError.message);
+      // do not fail payment verification because of email issue
+    }
 
     return res.status(200).json({
       success: true,

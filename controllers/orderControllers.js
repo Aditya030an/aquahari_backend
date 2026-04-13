@@ -4,6 +4,7 @@ import Order from "../models/orderModels.js";
 import userModel from "../models/userModels.js";
 import { createShipment } from "../helper/createShipment.js";
 import { getShipmentDetails } from "../helper/getShipmentDetails.js";
+import { sendOrderPlacedAdminEmail, sendOrderPlacedUserEmail } from "../utils/sendEmail.js";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY,
@@ -124,6 +125,15 @@ export const verifyPayment = async (req, res) => {
     console.log("totalAmount:", totalAmount);
     console.log("shippingAddress received:", orderData.shippingAddress);
 
+    const user = await userModel.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
     const newOrder = await Order.create({
       user: userId,
       items: normalizedItems,
@@ -132,8 +142,8 @@ export const verifyPayment = async (req, res) => {
       totalAmount,
       address: orderData.address,
       shippingAddress: orderData.shippingAddress || {},
-      phone: orderData.phone,
-      name: orderData.name,
+      phone: orderData.phone || user.phoneNumber || "",
+      name: orderData.name || user.name || "",
       email: req.user.email,
       paymentId: razorpay_payment_id,
       orderId: razorpay_order_id,
@@ -157,30 +167,6 @@ export const verifyPayment = async (req, res) => {
     const shipment = await createShipment(newOrder);
 
     console.log("Shipment response from Shiprocket helper:", shipment);
-
-    // if (shipment) {
-    //   newOrder.shipmentId =
-    //     shipment?.shipment_id?.toString() ||
-    //     shipment?.payload?.shipment_id?.toString() ||
-    //     "";
-
-    //   newOrder.trackingUrl =
-    //     shipment?.tracking_url || shipment?.payload?.tracking_url || "";
-
-    //   newOrder.awbCode =
-    //     shipment?.awb_code || shipment?.payload?.awb_code || "";
-
-    //   newOrder.courierName =
-    //     shipment?.courier_name || shipment?.payload?.courier_name || "";
-
-    //   newOrder.deliveryStatus = "shipped";
-
-    //   await newOrder.save();
-
-    //   console.log("Order updated with shipment details:", newOrder);
-    // } else {
-    //   console.log("Shipment was null, order kept in processing state");
-    // }
 
     if (
       shipment &&
@@ -219,6 +205,25 @@ export const verifyPayment = async (req, res) => {
     }
 
     await newOrder.save();
+
+    // send emails after successful order save
+    try {
+      await sendOrderPlacedUserEmail({
+        user,
+        order: newOrder,
+      });
+    } catch (emailError) {
+      console.error("Failed to send user order email:", emailError.message);
+    }
+
+    try {
+      await sendOrderPlacedAdminEmail({
+        user,
+        order: newOrder,
+      });
+    } catch (emailError) {
+      console.error("Failed to send admin order email:", emailError.message);
+    }
 
     console.log("========== VERIFY PAYMENT END ==========");
 
@@ -282,10 +287,8 @@ export const getAllOrders = async (req, res) => {
   }
 };
 
-
 export const refreshShipmentStatus = async (req, res) => {
   try {
-
     const { orderId } = req.params;
 
     console.log("Refreshing shipment for order:", orderId);
@@ -295,14 +298,14 @@ export const refreshShipmentStatus = async (req, res) => {
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "Order not found"
+        message: "Order not found",
       });
     }
 
     if (!order.shipmentId) {
       return res.status(400).json({
         success: false,
-        message: "Shipment not created yet"
+        message: "Shipment not created yet",
       });
     }
 
@@ -311,42 +314,35 @@ export const refreshShipmentStatus = async (req, res) => {
     if (!shipmentData) {
       return res.status(500).json({
         success: false,
-        message: "Unable to fetch shipment details"
+        message: "Unable to fetch shipment details",
       });
     }
 
-    const track =
-      shipmentData?.tracking_data?.shipment_track?.[0] || {};
+    const track = shipmentData?.tracking_data?.shipment_track?.[0] || {};
 
-    order.awbCode =
-      track?.awb_code || order.awbCode;
+    order.awbCode = track?.awb_code || order.awbCode;
 
-    order.courierName =
-      track?.courier_name || order.courierName;
+    order.courierName = track?.courier_name || order.courierName;
 
     order.trackingUrl =
-      shipmentData?.tracking_data?.track_url ||
-      order.trackingUrl;
+      shipmentData?.tracking_data?.track_url || order.trackingUrl;
 
     order.deliveryStatus =
-      track?.current_status?.toLowerCase() ||
-      order.deliveryStatus;
+      track?.current_status?.toLowerCase() || order.deliveryStatus;
 
     await order.save();
 
     return res.status(200).json({
       success: true,
       message: "Shipment status updated",
-      order
+      order,
     });
-
   } catch (error) {
-
     console.log("refreshShipmentStatus error:", error);
 
     return res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };

@@ -3,8 +3,7 @@ import userModel from "../models/userModels.js";
 import validator from "validator";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { sendLocationAlertEmails, sendResetPasswordEmail } from "../utils/sendEmail.js";
-import sendSMS from "../utils/sendSMS.js";
+import {sendResetPasswordEmail } from "../utils/sendEmail.js";
 
 const createToken = (id, email) => {
   return jwt.sign({ id, email }, process.env.JWT_SECRET);
@@ -185,26 +184,6 @@ const getUser = async (req, res) => {
   }
 };
 
-const sendLocationToAdmin = async (req, res) => {
-  try {
-    const { email, latitude, longitude } = req.body;
-    if (!email || !latitude || !longitude) {
-      return res.status(400).json({ success: false, message: "Missing data" });
-    }
-    const user = await userModel.findOne({ email });
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
-    }
-    await sendLocationAlertEmails(email, latitude, longitude);
-    res.status(200).json({ success: true, message: "Location sent to admin" });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
 // Send reset password link
 const sendResetPasswordLink = async (req, res) => {
   try {
@@ -339,7 +318,6 @@ export {
   registerUser,
   verifiedOtp,
   getUser,
-  sendLocationToAdmin,
   sendResetPasswordLink,
   resetPasswordWithToken,
 };
