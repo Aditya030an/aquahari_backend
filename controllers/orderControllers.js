@@ -2,9 +2,15 @@ import crypto from "crypto";
 import Razorpay from "razorpay";
 import Order from "../models/orderModels.js";
 import userModel from "../models/userModels.js";
-import { createShipment } from "../helper/createShipment.js";
+import {
+  createShipment,
+  getPickupLocations,
+} from "../helper/createShipment.js";
 import { getShipmentDetails } from "../helper/getShipmentDetails.js";
-import { sendOrderPlacedAdminEmail, sendOrderPlacedUserEmail } from "../utils/sendEmail.js";
+import {
+  sendOrderPlacedAdminEmail,
+  sendOrderPlacedUserEmail,
+} from "../utils/sendEmail.js";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY,
@@ -100,7 +106,7 @@ export const verifyPayment = async (req, res) => {
       productId: item.productId,
       productName: item.productName,
       image: item.image || "",
-      variant: item.variant,
+      capacity: item.capacity || "",
       price: Number(item.price),
       qty: Number(item.qty),
       deliveryCharge: Number(item.deliveryCharge || 0),
@@ -114,7 +120,7 @@ export const verifyPayment = async (req, res) => {
     );
 
     const totalDeliveryCharge = normalizedItems.reduce(
-      (acc, item) => acc + item.deliveryCharge * item.qty,
+      (acc, item) => acc + Number(item.deliveryCharge || 0),
       0,
     );
 
@@ -154,55 +160,59 @@ export const verifyPayment = async (req, res) => {
     console.log("Order saved in DB:", newOrder);
 
     const updatedUser = await userModel.findByIdAndUpdate(
-      userId,
-      {
-        $push: { orders: newOrder._id },
-      },
-      { new: true },
-    );
+  userId,
+  {
+    $push: { orders: newOrder._id },
+  },
+  { returnDocument: "after" },
+);
 
     console.log("Updated user after pushing order ID:", updatedUser?._id);
     console.log("User orders array:", updatedUser?.orders);
+
+    const getPickupLocation = await getPickupLocations();
+
+    console.log("get pick up location", getPickupLocation);
 
     const shipment = await createShipment(newOrder);
 
     console.log("Shipment response from Shiprocket helper:", shipment);
 
     if (
-      shipment &&
-      (shipment?.shipment_id ||
-        shipment?.payload?.shipment_id ||
-        shipment?.data?.shipment_id)
-    ) {
-      newOrder.shipmentId =
-        shipment?.shipment_id?.toString() ||
-        shipment?.payload?.shipment_id?.toString() ||
-        shipment?.data?.shipment_id?.toString() ||
-        "";
+  shipment &&
+  (shipment?.shipment_id ||
+    shipment?.payload?.shipment_id ||
+    shipment?.data?.shipment_id)
+) {
+  newOrder.shipmentId =
+    shipment?.shipment_id?.toString() ||
+    shipment?.payload?.shipment_id?.toString() ||
+    shipment?.data?.shipment_id?.toString() ||
+    "";
 
-      newOrder.trackingUrl =
-        shipment?.tracking_url ||
-        shipment?.payload?.tracking_url ||
-        shipment?.data?.tracking_url ||
-        "";
+  newOrder.trackingUrl =
+    shipment?.tracking_url ||
+    shipment?.payload?.tracking_url ||
+    shipment?.data?.tracking_url ||
+    "";
 
-      newOrder.awbCode =
-        shipment?.awb_code ||
-        shipment?.payload?.awb_code ||
-        shipment?.data?.awb_code ||
-        "";
+  newOrder.awbCode =
+    shipment?.awb_code ||
+    shipment?.payload?.awb_code ||
+    shipment?.data?.awb_code ||
+    "";
 
-      newOrder.courierName =
-        shipment?.courier_name ||
-        shipment?.payload?.courier_name ||
-        shipment?.data?.courier_name ||
-        "";
+  newOrder.courierName =
+    shipment?.courier_name ||
+    shipment?.payload?.courier_name ||
+    shipment?.data?.courier_name ||
+    "";
 
-      newOrder.deliveryStatus = "shipped";
-    } else {
-      console.log("Shipment creation failed or invalid response:", shipment);
-      newOrder.deliveryStatus = "processing";
-    }
+  newOrder.deliveryStatus = "shipment_created";
+} else {
+  console.log("Shipment creation failed or invalid response:", shipment);
+  newOrder.deliveryStatus = "shipment_failed";
+}
 
     await newOrder.save();
 
@@ -318,17 +328,25 @@ export const refreshShipmentStatus = async (req, res) => {
       });
     }
 
-    const track = shipmentData?.tracking_data?.shipment_track?.[0] || {};
+    const data = shipmentData?.data || {};
+    const awb = data?.awb || "";
+    const courierName = data?.courier || "";
+    const statusCode = data?.status;
+    const shipmentId = data?.id?.toString?.() || order.shipmentId;
 
-    order.awbCode = track?.awb_code || order.awbCode;
+    order.shipmentId = shipmentId;
+    order.awbCode = awb || order.awbCode;
+    order.courierName = courierName || order.courierName;
 
-    order.courierName = track?.courier_name || order.courierName;
+    if (awb) {
+      order.trackingUrl = `https://shiprocket.co/tracking/${awb}`;
+    }
 
-    order.trackingUrl =
-      shipmentData?.tracking_data?.track_url || order.trackingUrl;
-
-    order.deliveryStatus =
-      track?.current_status?.toLowerCase() || order.deliveryStatus;
+    if (statusCode === 11) {
+      order.deliveryStatus = "shipment_created";
+    } else if (awb) {
+      order.deliveryStatus = "shipped";
+    }
 
     await order.save();
 
@@ -336,6 +354,7 @@ export const refreshShipmentStatus = async (req, res) => {
       success: true,
       message: "Shipment status updated",
       order,
+      shipmentData,
     });
   } catch (error) {
     console.log("refreshShipmentStatus error:", error);

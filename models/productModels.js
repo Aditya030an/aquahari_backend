@@ -5,30 +5,42 @@ const productSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
+      trim: true,
     },
     description: {
       type: String,
       required: true,
+      trim: true,
     },
 
-    quantity: {
+    capacity: {
       type: String,
+      required: true,
+      default: 0,
     },
 
-    variants: [
-      {
-        label: String, // "1 PCS", "4 PCS"
-        price: Number, // 250, 1000
-        discount: {
-          type: Number,
-          default: 0,
-        },
-        deliveryCharge: {
-          type: Number,
-          default: 0,
-        },
-      },
-    ],
+    price: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+
+    baseDeliveryPrice: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+
+    deliveryPricePerBottle: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+
+    discount: {
+      type: Number,
+      default: 0,
+    },
 
     images: [
       {

@@ -13,7 +13,7 @@ const orderSchema = new mongoose.Schema(
         productId: { type: String, required: true },
         productName: { type: String, required: true },
         image: { type: String, default: "" },
-        variant: { type: String, required: true },
+        capacity: { type: String, default: "" },
         price: { type: Number, required: true },
         qty: { type: Number, required: true },
         deliveryCharge: { type: Number, default: 0 },
@@ -101,10 +101,19 @@ const orderSchema = new mongoose.Schema(
 
     deliveryStatus: {
       type: String,
+      enum: [
+       "processing",
+        "shipment_created",
+        "shipped",
+        "in_transit",
+        "delivered",
+        "cancelled",
+        "shipment_failed",
+      ],
       default: "processing",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.models.Order || mongoose.model("Order", orderSchema);

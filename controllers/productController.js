@@ -7,14 +7,31 @@ export const createProduct = async (req, res) => {
     console.log("FILES:", req.files);
 
     // ✅ Validate required fields
-    const { name, description , quantity } = req.body;
+    const {
+      name,
+      description,
+      capacity,
+      price,
+      baseDeliveryPrice,
+      deliveryPricePerBottle,
+      discount,
+    } = req.body;
 
-    console.log("quantity" , quantity);
+    // console.log("quantity", quantity);
 
-    if (!name || !description) {
+    if (
+      !name ||
+      !description ||
+      capacity === undefined ||
+      price === undefined ||
+      baseDeliveryPrice === undefined ||
+      deliveryPricePerBottle === undefined ||
+      discount === undefined
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Name and description are required",
+        message:
+          "Name, description, quantity, price, base delivery price, delivery price per bottle and discount are required",
       });
     }
 
@@ -32,51 +49,25 @@ export const createProduct = async (req, res) => {
       });
     }
 
-    // ✅ Handle variants safely
-    let variants = [];
-    try {
-      variants = JSON.parse(req.body.variants);
-    } catch (err) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid variants format",
-      });
-    }
-
-    // ✅ Validate variants
-    if (!variants.length) {
-      return res.status(400).json({
-        success: false,
-        message: "At least 1 variant is required",
-      });
-    }
-
-    const isInvalidVariant = variants.some(
-      (v) => !v.label || !v.price
-    );
-
-    if (isInvalidVariant) {
-      return res.status(400).json({
-        success: false,
-        message: "Each variant must have label and price",
-      });
-    }
-
     // ✅ Create product
     const product = await Product.create({
-      name,
-      description,
-      quantity,
-      variants,
+      name: name.trim(),
+      description: description.trim(),
+      capacity: capacity,
+      price: Number(price),
+      baseDeliveryPrice: Number(baseDeliveryPrice),
+      deliveryPricePerBottle: Number(deliveryPricePerBottle),
+      discount: Number(discount),
       images,
     });
+
+    console.log("product inside backend" , product);
 
     res.status(201).json({
       success: true,
       message: "Product created successfully",
       product,
     });
-
   } catch (err) {
     console.error("CREATE PRODUCT ERROR:", err);
 
@@ -89,15 +80,29 @@ export const createProduct = async (req, res) => {
 };
 
 export const getProducts = async (req, res) => {
-  const products = await Product.find().sort({ createdAt: -1 });
-  res.json(products);
+  try {
+    const products = await Product.find().sort({ createdAt: -1 });
+
+    return res.status(200).json(products);
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch products",
+      error: err.message,
+    });
+  }
 };
-
-
 
 export const updateProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
 
     // 🔥 Remove selected images
     if (req.body.removedImages) {
@@ -108,8 +113,7 @@ export const updateProduct = async (req, res) => {
       }
 
       product.images = product.images.filter(
-        (img) =>
-          !removed.some((r) => r.public_id === img.public_id)
+        (img) => !removed.some((r) => r.public_id === img.public_id),
       );
     }
 
@@ -124,23 +128,51 @@ export const updateProduct = async (req, res) => {
     }
 
     // update fields
-    product.name = req.body.name || product.name;
-    product.description = req.body.description || product.description;
-    product.price = req.body.price || product.price;
-    product.discount = req.body.discount || product.discount;
+    if (req.body.name !== undefined) product.name = req.body.name.trim();
+    if (req.body.description !== undefined) {
+      product.description = req.body.description.trim();
+    }
+    if (req.body.capacity !== undefined) {
+      product.capacity = Number(req.body.capacity);
+    }
+    if (req.body.price !== undefined) {
+      product.price = Number(req.body.price);
+    }
+    if (req.body.baseDeliveryPrice !== undefined) {
+      product.baseDeliveryPrice = Number(req.body.baseDeliveryPrice);
+    }
+    if (req.body.deliveryPricePerBottle !== undefined) {
+      product.deliveryPricePerBottle = Number(req.body.deliveryPricePerBottle);
+    }
+    if (req.body.discount !== undefined) {
+      product.discount = Number(req.body.discount);
+    }
 
     await product.save();
-
-    res.json(product);
+    return res.status(200).json({
+      success: true,
+      message: "Product updated successfully",
+      product,
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update product",
+      error: err.message,
+    });
   }
 };
-
 
 export const deleteProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
 
     // 🔥 delete all images
     for (let img of product.images) {
@@ -149,8 +181,15 @@ export const deleteProduct = async (req, res) => {
 
     await product.deleteOne();
 
-    res.json({ success: true, message: "Product deleted" });
+    return res.status(200).json({
+      success: true,
+      message: "Product deleted",
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete product",
+      error: err.message,
+    });
   }
 };

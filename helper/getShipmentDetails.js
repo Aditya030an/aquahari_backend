@@ -24,15 +24,12 @@ export const getShipmentDetails = async (shipmentId) => {
     );
 
     console.log("SHIPROCKET SHIPMENT DETAILS:", response.data);
-
     return response.data;
-
   } catch (error) {
     console.log(
       "SHIPMENT DETAILS ERROR:",
       error.response?.data || error.message
     );
-
     return null;
   }
 };

@@ -245,15 +245,15 @@ const escapeHtml = (value) => {
 
 const getAddressHtml = (shippingAddress = {}) => {
   const parts = [
-    shippingAddress.fullName,
-    shippingAddress.phone,
-    shippingAddress.addressLine1,
-    shippingAddress.addressLine2,
-    shippingAddress.landmark,
-    shippingAddress.city,
-    shippingAddress.state,
-    shippingAddress.pincode,
-    shippingAddress.country,
+    shippingAddress?.fullName,
+    shippingAddress?.phone,
+    shippingAddress?.addressLine1,
+    shippingAddress?.addressLine2,
+    shippingAddress?.landmark,
+    shippingAddress?.city,
+    shippingAddress?.state,
+    shippingAddress?.pincode,
+    shippingAddress?.country,
   ].filter(Boolean);
 
   if (!parts.length) return "Not available";
@@ -264,26 +264,29 @@ const getAddressHtml = (shippingAddress = {}) => {
 const getItemsRowsHtml = (items = []) => {
   return items
     .map((item, index) => {
-      const itemTotal =
-        Number(item.price || 0) * Number(item.qty || 0) +
-        Number(item.deliveryCharge || 0) * Number(item.qty || 0);
+      const itemSubTotal =
+        Number(item?.price || 0) * Number(item?.qty || 0);
+
+      const itemDelivery = Number(item?.deliveryCharge || 0);
+
+      const itemTotal = itemSubTotal + itemDelivery;
 
       return `
         <tr>
           <td style="padding:14px 12px; border-bottom:1px solid #eee; vertical-align:top;">
-            <div style="font-weight:600; color:#111827;">${index + 1}. ${escapeHtml(item.productName || "Product")}</div>
+            <div style="font-weight:600; color:#111827;">${index + 1}. ${escapeHtml(item?.productName || "Product")}</div>
             <div style="font-size:12px; color:#6b7280; margin-top:4px;">
-              Variant: ${escapeHtml(item.variant || "N/A")}
+              Bottle Size: ${escapeHtml(item?.capacity || "N/A")}
             </div>
           </td>
           <td style="padding:14px 12px; border-bottom:1px solid #eee; text-align:center;">
-            ${escapeHtml(item.qty || 1)}
+            ${escapeHtml(item?.qty || 1)}
           </td>
           <td style="padding:14px 12px; border-bottom:1px solid #eee; text-align:right;">
-            ${formatCurrency(item.price)}
+            ${formatCurrency(item?.price)}
           </td>
           <td style="padding:14px 12px; border-bottom:1px solid #eee; text-align:right;">
-            ${formatCurrency(item.deliveryCharge || 0)}
+            ${formatCurrency(itemDelivery|| 0)}
           </td>
           <td style="padding:14px 12px; border-bottom:1px solid #eee; text-align:right; font-weight:600;">
             ${formatCurrency(itemTotal)}

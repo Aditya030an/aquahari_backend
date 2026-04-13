@@ -1,5 +1,12 @@
 import axios from "axios";
 
+const sanitizeText = (value = "") => {
+  return String(value)
+    .replace(/[^\p{L}\p{N}\s.,\-()/&]/gu, "") // removes emoji and odd symbols
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
 export const createShipment = async (order) => {
   try {
     console.log("========== SHIPROCKET START ==========");
@@ -10,7 +17,7 @@ export const createShipment = async (order) => {
       {
         email: process.env.SHIPROCKET_EMAIL,
         password: process.env.SHIPROCKET_PASSWORD,
-      }
+      },
     );
 
     console.log("Shiprocket auth response:", tokenRes.data);
@@ -19,12 +26,12 @@ export const createShipment = async (order) => {
 
     const subTotal = order.items.reduce(
       (acc, item) => acc + Number(item.price) * Number(item.qty),
-      0
+      0,
     );
 
     const totalDeliveryCharge = order.items.reduce(
       (acc, item) => acc + Number(item.deliveryCharge || 0) * Number(item.qty),
-      0
+      0,
     );
 
     const payload = {
@@ -32,23 +39,25 @@ export const createShipment = async (order) => {
       order_date: new Date().toISOString().split("T")[0],
       pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION,
       comment: "Order from Aquahari",
-      billing_customer_name: order.name,
+      billing_customer_name: sanitizeText(order.name),
       billing_last_name: "",
-      billing_address: order.shippingAddress?.fullAddress || order.address,
-      billing_address_2: order.shippingAddress?.landmark || "",
-      billing_city: order.shippingAddress?.city || "Indore",
-      billing_pincode: order.shippingAddress?.pincode || "452001",
-      billing_state: order.shippingAddress?.state || "Madhya Pradesh",
-      billing_country: order.shippingAddress?.country || "India",
-      billing_email:order.email ||
-        "customer@example.com",
-      billing_phone: order.phone,
+      billing_address: sanitizeText(
+        order.shippingAddress?.fullAddress || order.address,
+      ),
+      billing_address_2: sanitizeText(order.shippingAddress?.landmark || ""),
+      billing_city: sanitizeText(order.shippingAddress?.city || ""),
+      billing_pincode: String(order.shippingAddress?.pincode || "").trim(),
+      billing_state: sanitizeText(order.shippingAddress?.state || ""),
+      billing_country: "India",
+      billing_email:
+        order.email || process.env.SHIPROCKET_DEFAULT_CUSTOMER_EMAIL,
+      billing_phone: String(order.phone || "").trim(),
       shipping_is_billing: true,
       order_items: order.items.map((item) => ({
-        name: item.productName,
-        sku: item.productId,
-        units: item.qty,
-        selling_price: item.price,
+        name: sanitizeText(item.productName),
+        sku: String(item.productId),
+        units: Number(item.qty),
+        selling_price: Number(item.price),
       })),
       payment_method: "Prepaid",
       shipping_charges: totalDeliveryCharge,
@@ -72,11 +81,13 @@ export const createShipment = async (order) => {
           Authorization: `Bearer ${shipToken}`,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
 
     console.log("Shiprocket create shipment response:", response.data);
     console.log("========== SHIPROCKET END ==========");
+
+    if (!response.data) return null;
 
     if (
       response.data?.message &&
@@ -86,7 +97,13 @@ export const createShipment = async (order) => {
       return null;
     }
 
-    return response.data;
+    if (
+      response.data?.message &&
+      response.data.message.toLowerCase().includes("unable to create an order")
+    ) {
+      console.log("Shiprocket generic order creation failure");
+      return null;
+    }
 
     return response.data;
   } catch (err) {
@@ -96,9 +113,6 @@ export const createShipment = async (order) => {
   }
 };
 
-
-
-
 export const getPickupLocations = async () => {
   try {
     const tokenRes = await axios.post(
@@ -106,7 +120,7 @@ export const getPickupLocations = async () => {
       {
         email: process.env.SHIPROCKET_EMAIL,
         password: process.env.SHIPROCKET_PASSWORD,
-      }
+      },
     );
 
     const shipToken = tokenRes.data.token;
@@ -117,7 +131,7 @@ export const getPickupLocations = async () => {
         headers: {
           Authorization: `Bearer ${shipToken}`,
         },
-      }
+      },
     );
 
     console.log("AVAILABLE PICKUP LOCATIONS:", response.data);
@@ -125,7 +139,9 @@ export const getPickupLocations = async () => {
   } catch (error) {
     console.log(
       "PICKUP LOCATION FETCH ERROR:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
+    return null;
   }
 };
+
