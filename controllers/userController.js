@@ -66,6 +66,7 @@ const loginUser = async (req, res) => {
     res.status(200).json({
       message: "Login Successfully",
       user: safeUser,
+      isAdmin: user.email === process.env.ADMIN_EMAIL,
       success: true,
       token,
     });
