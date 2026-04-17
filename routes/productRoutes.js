@@ -26,7 +26,7 @@ router.get("/", getProducts);
 router.put(
   "/:id",
   authUser,
-  upload.array("images", 5),
+  upload.array("images", 10),
   updateProduct
 );
 

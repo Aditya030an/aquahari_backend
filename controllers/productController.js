@@ -3,10 +3,6 @@ import { cloudinary } from "../config/cloudinary.js";
 
 export const createProduct = async (req, res) => {
   try {
-    console.log("BODY:", req.body);
-    console.log("FILES:", req.files);
-
-    // ✅ Validate required fields
     const {
       name,
       description,
@@ -16,8 +12,6 @@ export const createProduct = async (req, res) => {
       deliveryPricePerBottle,
       discount,
     } = req.body;
-
-    // console.log("quantity", quantity);
 
     if (
       !name ||
@@ -31,11 +25,10 @@ export const createProduct = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Name, description, quantity, price, base delivery price, delivery price per bottle and discount are required",
+          "Name, description, capacity, price, base delivery price, delivery price per bottle and discount are required",
       });
     }
 
-    // ✅ Handle images safely
     let images = [];
     if (req.files && req.files.length > 0) {
       images = req.files.map((file) => ({
@@ -49,11 +42,10 @@ export const createProduct = async (req, res) => {
       });
     }
 
-    // ✅ Create product
     const product = await Product.create({
       name: name.trim(),
       description: description.trim(),
-      capacity: capacity,
+      capacity: capacity.trim(),
       price: Number(price),
       baseDeliveryPrice: Number(baseDeliveryPrice),
       deliveryPricePerBottle: Number(deliveryPricePerBottle),
@@ -61,9 +53,7 @@ export const createProduct = async (req, res) => {
       images,
     });
 
-    console.log("product inside backend" , product);
-
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Product created successfully",
       product,
@@ -71,7 +61,7 @@ export const createProduct = async (req, res) => {
   } catch (err) {
     console.error("CREATE PRODUCT ERROR:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error",
       error: err.message,
@@ -95,8 +85,9 @@ export const getProducts = async (req, res) => {
 
 export const updateProduct = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const { id } = req.params;
 
+    const product = await Product.findById(id);
     if (!product) {
       return res.status(404).json({
         success: false,
@@ -104,57 +95,108 @@ export const updateProduct = async (req, res) => {
       });
     }
 
-    // 🔥 Remove selected images
-    if (req.body.removedImages) {
-      const removed = JSON.parse(req.body.removedImages);
+    const {
+      name,
+      description,
+      capacity,
+      price,
+      baseDeliveryPrice,
+      deliveryPricePerBottle,
+      discount,
+      removedImages,
+      existingImagesOrder,
+    } = req.body;
 
-      for (let img of removed) {
-        await cloudinary.uploader.destroy(img.public_id);
+    // 1) remove selected old images from cloudinary
+    let removed = [];
+    if (removedImages) {
+      try {
+        removed = JSON.parse(removedImages);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid removedImages format",
+        });
       }
 
-      product.images = product.images.filter(
-        (img) => !removed.some((r) => r.public_id === img.public_id),
-      );
+      for (const img of removed) {
+        if (img?.public_id) {
+          await cloudinary.uploader.destroy(img.public_id);
+        }
+      }
     }
 
-    // 🆕 Add new images
+    // existing images after removal
+    let remainingExistingImages = product.images.filter(
+      (img) => !removed.some((r) => r.public_id === img.public_id)
+    );
+
+    // 2) reorder remaining existing images according to frontend
+    if (existingImagesOrder) {
+      let parsedExistingOrder = [];
+
+      try {
+        parsedExistingOrder = JSON.parse(existingImagesOrder);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid existingImagesOrder format",
+        });
+      }
+
+      const orderedExisting = [];
+      for (const orderedImg of parsedExistingOrder) {
+        const found = remainingExistingImages.find(
+          (img) => img.public_id === orderedImg.public_id
+        );
+        if (found) orderedExisting.push(found);
+      }
+
+      remainingExistingImages = orderedExisting;
+    }
+
+    // 3) append newly uploaded images at the positions after existing order
+    let newImages = [];
     if (req.files && req.files.length > 0) {
-      const newImages = req.files.map((file) => ({
+      newImages = req.files.map((file) => ({
         url: file.path,
         public_id: file.filename,
       }));
-
-      product.images.push(...newImages);
     }
 
-    // update fields
-    if (req.body.name !== undefined) product.name = req.body.name.trim();
-    if (req.body.description !== undefined) {
-      product.description = req.body.description.trim();
+    const finalImages = [...remainingExistingImages, ...newImages];
+
+    if (finalImages.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least 1 image is required",
+      });
     }
-    if (req.body.capacity !== undefined) {
-      product.capacity = Number(req.body.capacity);
+
+    // 4) update body fields
+    if (name !== undefined) product.name = name.trim();
+    if (description !== undefined) product.description = description.trim();
+    if (capacity !== undefined) product.capacity = capacity.trim();
+    if (price !== undefined) product.price = Number(price);
+    if (baseDeliveryPrice !== undefined) {
+      product.baseDeliveryPrice = Number(baseDeliveryPrice);
     }
-    if (req.body.price !== undefined) {
-      product.price = Number(req.body.price);
+    if (deliveryPricePerBottle !== undefined) {
+      product.deliveryPricePerBottle = Number(deliveryPricePerBottle);
     }
-    if (req.body.baseDeliveryPrice !== undefined) {
-      product.baseDeliveryPrice = Number(req.body.baseDeliveryPrice);
-    }
-    if (req.body.deliveryPricePerBottle !== undefined) {
-      product.deliveryPricePerBottle = Number(req.body.deliveryPricePerBottle);
-    }
-    if (req.body.discount !== undefined) {
-      product.discount = Number(req.body.discount);
-    }
+    if (discount !== undefined) product.discount = Number(discount);
+
+    product.images = finalImages;
 
     await product.save();
+
     return res.status(200).json({
       success: true,
       message: "Product updated successfully",
       product,
     });
   } catch (err) {
+    console.error("UPDATE PRODUCT ERROR:", err);
     return res.status(500).json({
       success: false,
       message: "Failed to update product",
@@ -174,7 +216,6 @@ export const deleteProduct = async (req, res) => {
       });
     }
 
-    // 🔥 delete all images
     for (let img of product.images) {
       await cloudinary.uploader.destroy(img.public_id);
     }
