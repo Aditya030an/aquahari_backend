@@ -16,49 +16,51 @@ const port = process.env.PORT || 4000;
 
 connectDb();
 
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  process.env.CLIENT_URL_PROD,
-  process.env.CLIENT_URL_WWW,
-  "https://aquahari.in",
-  "https://www.aquahari.in",
-  "http://localhost:5173",
-  "http://localhost:3000",
-]
-  .filter(Boolean)
-  .map((origin) => origin.trim().replace(/\/$/, ""));
+// const allowedOrigins = [
+//   process.env.FRONTEND_URL,
+//   process.env.CLIENT_URL_PROD,
+//   process.env.CLIENT_URL_WWW,
+//   "https://aquahari.in",
+//   "https://www.aquahari.in",
+//   "http://localhost:5173",
+//   "http://localhost:3000",
+// ]
+//   .filter(Boolean)
+//   .map((origin) => origin.trim().replace(/\/$/, ""));
 
-console.log("Allowed Origins:", allowedOrigins);
+// console.log("Allowed Origins:", allowedOrigins);
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) {
-      return callback(null, true);
-    }
+// const corsOptions = {
+//   origin: function (origin, callback) {
+//     if (!origin) {
+//       return callback(null, true);
+//     }
 
-    const normalizedOrigin = origin.trim().replace(/\/$/, "");
-    console.log("Incoming Origin:", normalizedOrigin);
+//     const normalizedOrigin = origin.trim().replace(/\/$/, "");
+//     console.log("Incoming Origin:", normalizedOrigin);
 
-    if (allowedOrigins.includes(normalizedOrigin)) {
-      return callback(null, true);
-    }
+//     if (allowedOrigins.includes(normalizedOrigin)) {
+//       return callback(null, true);
+//     }
 
-    if (
-      normalizedOrigin.endsWith(".vercel.app") ||
-      normalizedOrigin.endsWith(".aquahari.in")
-    ) {
-      return callback(null, true);
-    }
+//     if (
+//       normalizedOrigin.endsWith(".vercel.app") ||
+//       normalizedOrigin.endsWith(".aquahari.in")
+//     ) {
+//       return callback(null, true);
+//     }
 
-    console.error("Blocked by CORS:", normalizedOrigin);
-    return callback(null, false);
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-};
+//     console.error("Blocked by CORS:", normalizedOrigin);
+//     return callback(null, false);
+//   },
+//   credentials: true,
+//   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+//   allowedHeaders: ["Content-Type", "Authorization"],
+// };
 
-app.use(cors(corsOptions));
+
+
+app.use(cors());
 app.use(express.json());
 
 // API end points
