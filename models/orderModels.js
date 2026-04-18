@@ -79,6 +79,12 @@ const orderSchema = new mongoose.Schema(
       default: "pending",
     },
 
+    paymentMethod: {
+      type: String,
+      enum: ["prepaid", "cod"],
+      default: "prepaid",
+    },
+
     shipmentId: {
       type: String,
       default: "",
@@ -102,7 +108,7 @@ const orderSchema = new mongoose.Schema(
     deliveryStatus: {
       type: String,
       enum: [
-       "processing",
+        "processing",
         "shipment_created",
         "shipped",
         "in_transit",

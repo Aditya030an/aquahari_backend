@@ -30,14 +30,20 @@ export const createShipment = async (order) => {
     );
 
     const totalDeliveryCharge = order.items.reduce(
-      (acc, item) => acc + Number(item.deliveryCharge || 0) * Number(item.qty),
+      (acc, item) => acc + Number(item.deliveryCharge || 0),
       0,
     );
+
+        const pickupLocation = String(
+      process.env.SHIPROCKET_PICKUP_LOCATION || "AquaHari"
+    ).trim();
+
+    console.log("ENV SHIPROCKET_PICKUP_LOCATION:", pickupLocation);
 
     const payload = {
       order_id: order._id.toString(),
       order_date: new Date().toISOString().split("T")[0],
-      pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION,
+      pickup_location:pickupLocation,
       comment: "Order from Aquahari",
       billing_customer_name: sanitizeText(order.name),
       billing_last_name: "",
@@ -59,7 +65,9 @@ export const createShipment = async (order) => {
         units: Number(item.qty),
         selling_price: Number(item.price),
       })),
-      payment_method: "Prepaid",
+      // payment_method: "Prepaid",
+      payment_method: order.paymentMethod === "cod" ? "COD" : "Prepaid",
+      cod_charges: 0,
       shipping_charges: totalDeliveryCharge,
       giftwrap_charges: 0,
       transaction_charges: 0,
@@ -84,10 +92,12 @@ export const createShipment = async (order) => {
       },
     );
 
-    console.log("Shiprocket create shipment response:", response.data);
+    const data = response.data;
+
+    console.log("Shiprocket create shipment response:", data);
     console.log("========== SHIPROCKET END ==========");
 
-    if (!response.data) return null;
+    if (!data) return null;
 
     if (
       response.data?.message &&
@@ -144,4 +154,3 @@ export const getPickupLocations = async () => {
     return null;
   }
 };
-

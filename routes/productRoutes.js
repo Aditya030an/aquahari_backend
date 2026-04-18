@@ -6,6 +6,7 @@ import {
   getProducts,
   updateProduct,
   deleteProduct,
+  getSingleProductById,
 } from "../controllers/productController.js";
 import authUser from "../middleware/auth.js";
 
@@ -22,6 +23,8 @@ router.post(
 );
 
 router.get("/", getProducts);
+
+router.get("/getSingleProduct/:id" , getSingleProductById);
 
 router.put(
   "/:id",

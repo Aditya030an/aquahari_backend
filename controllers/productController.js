@@ -83,6 +83,34 @@ export const getProducts = async (req, res) => {
   }
 };
 
+export const getSingleProductById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // console.log("product id" , id);
+    const product = await Product.findById(id);
+    // console.log("product inside the backend " , product);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Product find successfully",
+      product,
+    });
+  } catch (err) {
+    console.error("FETCH SINGLE PRODUCT ERROR:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to find product",
+      error: err.message,
+    });
+  }
+};
+
 export const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -128,7 +156,7 @@ export const updateProduct = async (req, res) => {
 
     // existing images after removal
     let remainingExistingImages = product.images.filter(
-      (img) => !removed.some((r) => r.public_id === img.public_id)
+      (img) => !removed.some((r) => r.public_id === img.public_id),
     );
 
     // 2) reorder remaining existing images according to frontend
@@ -147,7 +175,7 @@ export const updateProduct = async (req, res) => {
       const orderedExisting = [];
       for (const orderedImg of parsedExistingOrder) {
         const found = remainingExistingImages.find(
-          (img) => img.public_id === orderedImg.public_id
+          (img) => img.public_id === orderedImg.public_id,
         );
         if (found) orderedExisting.push(found);
       }
