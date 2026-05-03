@@ -37,6 +37,12 @@ const productSchema = new mongoose.Schema(
       default: 0,
     },
 
+    availableStock:{
+      type:Boolean,
+      required:true,
+      default:true,
+    },
+
     discount: {
       type: Number,
       default: 0,

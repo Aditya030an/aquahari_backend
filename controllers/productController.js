@@ -11,6 +11,7 @@ export const createProduct = async (req, res) => {
       baseDeliveryPrice,
       deliveryPricePerBottle,
       discount,
+      availableStock
     } = req.body;
 
     if (
@@ -50,6 +51,10 @@ export const createProduct = async (req, res) => {
       baseDeliveryPrice: Number(baseDeliveryPrice),
       deliveryPricePerBottle: Number(deliveryPricePerBottle),
       discount: Number(discount),
+      availableStock:
+  availableStock === undefined
+    ? true
+    : availableStock === true || availableStock === "true",
       images,
     });
 
@@ -130,6 +135,7 @@ export const updateProduct = async (req, res) => {
       price,
       baseDeliveryPrice,
       deliveryPricePerBottle,
+      availableStock,
       discount,
       removedImages,
       existingImagesOrder,
@@ -213,6 +219,10 @@ export const updateProduct = async (req, res) => {
       product.deliveryPricePerBottle = Number(deliveryPricePerBottle);
     }
     if (discount !== undefined) product.discount = Number(discount);
+    if (availableStock !== undefined) {
+  product.availableStock =
+    availableStock === true || availableStock === "true";
+}
 
     product.images = finalImages;
 
